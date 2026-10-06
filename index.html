@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>sentiment-web-lite · 情感分析</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC",sans-serif; background:#f5f6f8; margin:0; padding:24px; color:#1f2329; }
+  h1 { font-size:20px; }
+  textarea { width:100%; height:90px; padding:10px; border:1px solid #ccc; border-radius:8px; font-size:14px; }
+  button { background:#2f6fed; color:#fff; border:none; border-radius:8px; padding:9px 18px; cursor:pointer; margin-top:8px; }
+  #out { background:#fff; border:1px solid #e2e5ea; border-radius:10px; padding:12px; margin-top:12px; font-size:15px; }
+</style>
+</head>
+<body>
+  <h1>情感分析</h1>
+  <textarea id="src" placeholder="输入一句中文…"></textarea>
+  <br><button onclick="run()">分析</button>
+  <div id="out"></div>
+
+<!-- SENT_LOGIC_BEGIN -->
+<script>
+// ===== 纯函数：词典法情感分析（Node 断言）=====
+const POS = {"好":1,"喜欢":1,"爱":1,"棒":1,"开心":1,"优秀":1,"满意":1,"不错":1};
+const NEG = {"差":-1,"讨厌":-1,"坏":-1,"难过":-1,"失望":-1,"糟糕":-1,"慢":-1};
+const NEGATION = new Set(["不","没","无"]);
+const INTENS = {"很":1.5,"非常":1.5,"特别":1.5,"太":1.5,"极":1.5};
+
+function analyze(text) {
+  // 扫描词表命中；否定词翻转、程度词放大。
+  let score = 0, hits = 0;
+  const chars = text;
+  // 逐词典命中（中文按子串）
+  const dict = Object.assign({}, POS, NEG);
+  let i = 0;
+  while (i < chars.length) {
+    let matched = false;
+    for (const word of Object.keys(dict)) {
+      if (chars.startsWith(word, i)) {
+        let w = dict[word];
+        // 看前两字是否含否定/程度
+        const ctx = chars.slice(Math.max(0, i-2), i);
+        if ([...NEGATION].some(n => ctx.includes(n))) w = -w;
+        const mult = [...Object.keys(INTENS)].find(k => ctx.includes(k));
+        if (mult) w *= INTENS[mult];
+        score += w; hits++;
+        i += word.length;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) i++;
+  }
+  const label = score > 0.2 ? "正面" : score < -0.2 ? "负面" : "中性";
+  return { label, score: Math.round(score * 100) / 100, hits };
+}
+// ===== SENT_LOGIC_END =====
+
+function run() {
+  const r = analyze(document.getElementById("src").value);
+  document.getElementById("out").textContent =
+    `情感：${r.label}（分数 ${r.score}，命中 ${r.hits} 词）`;
+}
+</script>
+</body>
+</html>
